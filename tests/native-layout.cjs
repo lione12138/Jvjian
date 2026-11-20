@@ -30,7 +30,7 @@ async function page(settings={},initialRoot=true){
     MutationObserver:class{constructor(fn){observers.push(fn);}observe(){}},
     chrome:{storage:{local:{async get(defaults){return {...defaults,...settings};},async set(values){Object.assign(settings,values);}},onChanged:{addListener(fn){storageListener=fn;}}}}};
   vm.createContext(context);
-  for(const script of ['src/page-count.js','src/native-layout.js']){
+  for(const script of require('../manifest.json').content_scripts[0].js){
     vm.runInContext(fs.readFileSync(script,'utf8'),context);
   }
   await new Promise(setImmediate);

@@ -2,12 +2,12 @@
   "manifest_version": 3,
   "name": "句间 · 微信读书单页阅读",
   "short_name": "句间",
-  "version": "0.3.6",
+  "version": "0.3.10",
   "description": "将微信读书正文排成可上下滚动的单栏长页，保留原生划线与书友想法。非腾讯官方扩展。",
   "permissions": ["storage"],
   "content_scripts": [{
     "matches": ["https://weread.qq.com/web/reader/*"],
-    "js": ["src/page-count.js", "src/native-layout.js"],
+    "js": ["src/page-count.js", "src/typography.js", "src/appearance.js", "src/native-layout.js"],
     "run_at": "document_idle"
   }],
   "action": {

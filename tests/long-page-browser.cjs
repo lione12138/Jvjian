@@ -39,8 +39,9 @@ async function openReader(t, savedSettings = {}) {
     };
   }, savedSettings);
   await page.goto(pathToFileURL(path.join(__dirname, 'fixtures/long-page.html')).href);
-  await page.addScriptTag({ path: path.join(__dirname, '../src/page-count.js') });
-  await page.addScriptTag({ path: path.join(__dirname, '../src/native-layout.js') });
+  for (const script of require('../manifest.json').content_scripts[0].js) {
+    await page.addScriptTag({ path: path.join(__dirname, '..', script) });
+  }
   return page;
 }
 
@@ -124,6 +125,89 @@ async function measureInk(page) {
     };
   });
 }
+
+test('typography settings reflow the native page and reset to the reader defaults', browserTest, async t => {
+  const page = await openReader(t);
+  const panel = page.locator('#jujian-native-reader');
+  const chapter = page.locator('main');
+  await panel.locator('#fab').click();
+  const initialCapacity = Number(await chapter.getAttribute('data-capacity'));
+  await panel.locator('#readerFontSize').selectOption('24px');
+  await panel.locator('#readerLineHeight').selectOption('2.2');
+  await panel.locator('#readerFontFamily').selectOption('SimSun,"Songti SC",serif');
+  const styles = await page.locator('.preRenderContent p').evaluate(para => {
+    const {fontSize, fontFamily, lineHeight} = getComputedStyle(para);
+    return {fontSize, fontFamily, lineHeight};
+  });
+  assert.equal(styles.fontSize, '24px');
+  assert.equal(styles.lineHeight, '52.8px');
+  assert.match(styles.fontFamily, /SimSun/);
+  const reflowedCapacity = Number(await chapter.getAttribute('data-capacity'));
+  assert.ok(reflowedCapacity < initialCapacity);
+  await panel.locator('#close').click();
+  const mark = page.locator('.wr_underline_wrapper');
+  await mark.scrollIntoViewIfNeeded();
+  await checkNativeOrigin(page);
+  await mark.click();
+  assert.match(await page.locator('.reviews_panel').innerText(), new RegExp('段落 '+reflowedCapacity+' 的想法'));
+  await page.getByRole('button', { name: '关闭想法' }).click();
+  await page.evaluate(() => chrome.storage.local.set({readerFontSize:'',readerLineHeight:'',readerFontFamily:''}));
+  assert.equal(Number(await chapter.getAttribute('data-capacity')), initialCapacity);
+});
+
+test('local wallpaper and colors apply without moving the page or underline', browserTest, async t => {
+  const page = await openReader(t);
+  const panel = page.locator('#jujian-native-reader');
+  const chapter = page.locator('main');
+  const underline = page.locator('.wr_underline_wrapper');
+  const initialBounds = await underline.boundingBox();
+  await panel.locator('#fab').click();
+  await panel.locator('summary').click();
+  const background = panel.locator('#reader-background');
+  await background.selectOption('amber');
+  const amber = await chapter.evaluate(node => getComputedStyle(node).backgroundColor);
+  await background.selectOption('green');
+  assert.notEqual(await chapter.evaluate(node => getComputedStyle(node).backgroundColor), amber);
+  const surround = page.locator('.readerChapterContent_container');
+  const matchingOuter = await surround.evaluate(node => getComputedStyle(node).backgroundColor);
+  await panel.locator('#reader-outer-background').selectOption('native');
+  assert.notEqual(await surround.evaluate(node => getComputedStyle(node).backgroundColor), matchingOuter);
+  await panel.locator('#reader-outer-background').selectOption('custom');
+  await panel.locator('#reader-outer-color').fill('#fcaabb');
+  await panel.locator('#reader-outer-color').dispatchEvent('change');
+  assert.notEqual(await surround.evaluate(node => getComputedStyle(node).backgroundColor), matchingOuter);
+  await panel.locator('#reader-text-color-enabled').check();
+  await panel.locator('#reader-text-color').fill('#123456');
+  await panel.locator('#reader-text-color').dispatchEvent('change');
+  assert.match(await chapter.locator('canvas').first().evaluate(node => getComputedStyle(node).filter), /jujian-text-color-filter/);
+  assert.equal(await page.locator('#jujian-text-color-filter feFlood').getAttribute('flood-color'), '#123456');
+  await panel.locator('#reader-text-color-enabled').uncheck();
+  await background.selectOption('custom');
+  assert.ok(await panel.locator('#reader-background-color').isVisible());
+  await background.selectOption('wallpaper');
+  await panel.locator('#reader-wallpaper').setInputFiles(path.join(__dirname, '../icons/128.png'));
+  await page.waitForFunction(() => getComputedStyle(document.querySelector('main')).backgroundImage.includes('data:image/webp'));
+  const fit = panel.locator('#reader-wallpaper-fit');
+  assert.equal(await fit.inputValue(), 'contain');
+  const fitSize = await chapter.evaluate(node => getComputedStyle(node).backgroundSize);
+  await fit.selectOption('cover');
+  assert.notEqual(await chapter.evaluate(node => getComputedStyle(node).backgroundSize), fitSize);
+  const initialPosition = await chapter.evaluate(node => getComputedStyle(node).backgroundPosition);
+  const vertical = panel.locator('#reader-wallpaper-y');
+  await vertical.fill('100');
+  await vertical.dispatchEvent('change');
+  assert.notEqual(await chapter.evaluate(node => getComputedStyle(node).backgroundPosition), initialPosition);
+  const range = panel.locator('#reader-wallpaper-opacity');
+  await range.fill('45');
+  await range.dispatchEvent('change');
+  await page.waitForFunction(() => document.getElementById('jujian-appearance-style').textContent.includes('55%'));
+  assert.equal(await panel.locator('#wallpaper-opacity-value').innerText(), '45%');
+  assert.deepEqual(await underline.boundingBox(), initialBounds);
+  await panel.locator('#reader-wallpaper-remove').click();
+  assert.equal(await chapter.evaluate(node => getComputedStyle(node).backgroundImage), 'none');
+  await background.selectOption('native');
+  assert.equal(await chapter.evaluate(node => getComputedStyle(node).backgroundColor), 'rgba(0, 0, 0, 0)');
+});
 
 async function checkNativeOrigin(page) {
   // Native selection reconstructs the page origin using offsetParent geometry

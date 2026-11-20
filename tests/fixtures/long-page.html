@@ -9,6 +9,8 @@
   .readerChapterContent_container { display: flex; flex-direction: column; align-items: center; height: 100%; }
   .readerChapterContent { position: relative; flex-shrink: 0; min-height: 0; width: 80%; max-width: calc(100vw - 224px); height: calc(100% - 132px); margin-top: 72px; }
   .renderTargetContainer { position: relative; width: 100%; height: 100%; }
+  .preRenderContent { position: absolute; visibility: hidden; }
+  .preRenderContent p { font: 16px/28px monospace; }
   .wr_canvasContainer { position: absolute; inset: 0; pointer-events: none; }
   .wr_underline_wrapper { position: absolute; z-index: 3; cursor: pointer; border-bottom: 1px dotted; height: 24px; }
   .renderTarget_pager { position: absolute; bottom: 24px; left: 66px; right: 66px; display: flex; justify-content: space-between; }
@@ -20,6 +22,7 @@
     <div class="wr_horizontalReader_app_content">
       <div class="readerChapterContent_container">
         <main class="readerChapterContent">
+          <div class="preRenderContent"><p>排版测量样本</p></div>
           <div class="renderTargetContainer"><div class="wr_canvasContainer"></div><span class="wr_underline_wrapper"></span></div>
           <div class="renderTarget_pager">
             <button class="renderTarget_pager_button">上一页</button>
@@ -36,10 +39,12 @@
   const chapter = document.querySelector('.readerChapterContent');
   const canvasLayer = chapter.querySelector('.wr_canvasContainer');
   const underline = chapter.querySelector('.wr_underline_wrapper');
-  const lineHeight = 28;
+  const measuredParagraph = chapter.querySelector('.preRenderContent p');
   let first = 1;
   let capacity;
   function render() {
+    const {fontSize, fontFamily, lineHeight: cssLineHeight} = getComputedStyle(measuredParagraph);
+    const lineHeight = Math.round(parseFloat(cssLineHeight));
     capacity = Math.max(1, Math.floor((chapter.clientHeight - 100) / lineHeight));
     const columns = Math.min(document.documentElement.clientWidth, document.body.clientWidth) < 1060 ? 1 : 2;
     const containerWidth = Math.round(chapter.clientWidth / columns);
@@ -54,7 +59,7 @@
       canvas.height = capacity * lineHeight;
       canvasLayer.append(canvas);
       const ctx = canvas.getContext('2d');
-      ctx.font = '16px monospace';
+      ctx.font = `${fontSize} ${fontFamily}`;
       for (let i = 0; i < capacity; i++) {
         const line = first + capacity * column + i;
         const prefix = '段落 ' + line + ' · ';
