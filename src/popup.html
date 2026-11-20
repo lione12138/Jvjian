@@ -1,0 +1,11 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>句间阅读设置</title>
+<style>
+body{width:285px;margin:0;padding:20px;background:#f8fbf8;color:#263d31;font:13px/1.7 system-ui,"Microsoft YaHei",sans-serif}h1{font-size:18px;margin:0 0 10px}p{margin:10px 0;color:#567362}label{display:flex;justify-content:space-between;align-items:center;margin:16px 0 7px}select{font:inherit}input[type=range]{width:100%;accent-color:#206d55}input[type=checkbox]{accent-color:#206d55}.hint{font-size:12px}#status{min-height:22px}
+</style></head><body>
+<h1>句间 · 0.3.6</h1><p>在一栏中滚动阅读，点击虚线查看书友想法。</p>
+<label for="enabled">启用单页阅读<input type="checkbox" id="enabled"></label>
+<label for="page-count">每个长页约含<select id="page-count"></select></label>
+<label for="fit-width">使用滚动模式的行宽<input type="checkbox" id="fit-width" checked></label>
+<div id="fixed-width" hidden><label for="width">固定页宽<span id="width-value">900px</span></label><input id="width" type="range" min="680" max="960" step="20" value="900"></div>
+<p id="status" role="status"></p><p class="hint">读到页底后，点“下一页”继续。选择 1 个普通页可恢复单屏分页。</p>
+<script src="page-count.js"></script><script src="popup.js"></script></body></html>

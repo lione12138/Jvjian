@@ -1,0 +1,95 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>分页阅读排版夹具</title>
+<style>
+  /* Relevant size/position constraints from the site's horizontal reader. */
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  .wr_horizontalReader { height: 100vh; width: 100vw; overflow: hidden; box-sizing: border-box; }
+  .wr_horizontalReader_app_content { height: 100%; width: 100%; overflow: hidden; }
+  .readerChapterContent_container { display: flex; flex-direction: column; align-items: center; height: 100%; }
+  .readerChapterContent { position: relative; flex-shrink: 0; min-height: 0; width: 80%; max-width: calc(100vw - 224px); height: calc(100% - 132px); margin-top: 72px; }
+  .renderTargetContainer { position: relative; width: 100%; height: 100%; }
+  .wr_canvasContainer { position: absolute; inset: 0; pointer-events: none; }
+  .wr_underline_wrapper { position: absolute; z-index: 3; cursor: pointer; border-bottom: 1px dotted; height: 24px; }
+  .renderTarget_pager { position: absolute; bottom: 24px; left: 66px; right: 66px; display: flex; justify-content: space-between; }
+  .reader_float_review_with_range_panel_wrapper { width: 100%; height: 100%; position: absolute; top: 0; display: flex; align-items: center; justify-content: center; }
+  .reviews_panel { background: white; border: 1px solid; padding: 8px; }
+</style>
+<div id="app">
+  <div class="wr_horizontalReader">
+    <div class="wr_horizontalReader_app_content">
+      <div class="readerChapterContent_container">
+        <main class="readerChapterContent">
+          <div class="renderTargetContainer"><div class="wr_canvasContainer"></div><span class="wr_underline_wrapper"></span></div>
+          <div class="renderTarget_pager">
+            <button class="renderTarget_pager_button">上一页</button>
+            <button class="renderTarget_pager_button renderTarget_pager_button_right">下一页</button>
+          </div>
+        </main>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  // Numbered lines are test data. Reflow derives capacity from the measured
+  // page; it never consults extension settings or fills a prebuilt tall page.
+  const chapter = document.querySelector('.readerChapterContent');
+  const canvasLayer = chapter.querySelector('.wr_canvasContainer');
+  const underline = chapter.querySelector('.wr_underline_wrapper');
+  const lineHeight = 28;
+  let first = 1;
+  let capacity;
+  function render() {
+    capacity = Math.max(1, Math.floor((chapter.clientHeight - 100) / lineHeight));
+    const columns = Math.min(document.documentElement.clientWidth, document.body.clientWidth) < 1060 ? 1 : 2;
+    const containerWidth = Math.round(chapter.clientWidth / columns);
+    const outer = 70, inner = columns === 1 ? outer : 35;
+    const inkWidth = Math.max(1, containerWidth - outer - inner);
+    canvasLayer.replaceChildren();
+    for (let column = 0; column < columns; column++) {
+      const canvas = document.createElement('canvas');
+      canvas.style.position = 'absolute';
+      canvas.style.left = (column === 0 ? outer : containerWidth + inner) + 'px';
+      canvas.width = inkWidth;
+      canvas.height = capacity * lineHeight;
+      canvasLayer.append(canvas);
+      const ctx = canvas.getContext('2d');
+      ctx.font = '16px monospace';
+      for (let i = 0; i < capacity; i++) {
+        const line = first + capacity * column + i;
+        const prefix = '段落 ' + line + ' · ';
+        const marked = '对应想法';
+        const prefixWidth = ctx.measureText(prefix).width;
+        const tailWidth = ctx.measureText(marked).width;
+        const step = ctx.measureText('读').width;
+        const count = Math.max(0, Math.floor((inkWidth - prefixWidth - tailWidth - 2) / step));
+        ctx.fillText(prefix + '读'.repeat(count) + marked, 0, (i + 1) * lineHeight - 4);
+        if (column === 0 && i === capacity - 1) {
+          underline.style.left = (outer + prefixWidth + count * step) + 'px';
+          underline.style.width = tailWidth + 'px';
+        }
+      }
+    }
+    underline.style.top = ((capacity - 1) * lineHeight) + 'px';
+    underline.dataset.line = first + capacity - 1;
+    chapter.dataset.first = first;
+    chapter.dataset.capacity = capacity;
+  }
+  window.addEventListener('resize', render);
+  function next() { first += capacity; render(); }
+  document.querySelector('.renderTarget_pager_button_right').onclick = next;
+  // The native horizontal reader maps ArrowDown and PageDown to the next
+  // logical page, including when its paging button retained keyboard focus.
+  document.addEventListener('keydown', e => {
+    if (['ArrowDown', 'PageDown'].includes(e.key)) next();
+  });
+  underline.onclick = () => {
+    const wrap = document.createElement('div');
+    wrap.className = 'reader_float_review_with_range_panel_wrapper';
+    wrap.innerHTML = '<div class="reviews_panel"><span></span><button aria-label="关闭想法">关闭</button></div>';
+    wrap.querySelector('span').textContent = '段落 ' + underline.dataset.line + ' 的想法';
+    wrap.querySelector('button').onclick = () => wrap.remove();
+    document.querySelector('.wr_horizontalReader_app_content').append(wrap);
+  };
+  render();
+</script>

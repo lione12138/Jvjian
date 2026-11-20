@@ -1,0 +1,14 @@
+*.log
+/dist/
+/legacy-0.2.4/
+/src/background.js
+/src/capture-main.js
+/src/content.js
+/src/native-observer.js
+/src/native-reader.js
+/src/web-data.js
+/tests/native-observer.cjs
+/tests/native-reader.cjs
+/tests/regression.cjs
+/tests/web-data.cjs
+/tests/fixtures/reader-40055543.json
